@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>FNF — Full System Upgrade (Dashboard + RBAC + Configurable %)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --bg:#fff; --fg:#111; --muted:#666; --border:#ddd; --panel:#f7f7f7; --accent:#0a7; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 16px; color: var(--fg); background: var(--bg); }
+  h2 { margin: 0 0 8px; font-size: 18px; }
+  h3 { margin: 12px 0 8px; font-size: 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .section { border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; background: var(--bg); }
+  label { display: block; margin-top: 8px; font-size: 14px; }
+  input, select, button { margin-top: 6px; padding: 8px; font-size: 14px; width: 100%; }
+  button { cursor: pointer; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .small { font-size: 12px; color: var(--muted); }
+  .hidden { display: none; }
+  .table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .table th, .table td { border: 1px solid var(--border); padding: 8px; font-size: 12px; text-align: left; }
+  .wallet-box { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .wallet-box div { padding: 10px; background: var(--panel); border-radius: 6px; text-align: center; }
+  .wallet-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .badge { display:inline-block; padding:2px 6px; border-radius:4px; background:#eef; font-size:12px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="section">
+  <div class="flex-between">
+    <h2>System header</h2>
+    <div>
+      <span id="sessionInfo" class="small">Not logged in</span>
+      <button id="btnLogout" class="hidden">Logout</button>
+    </div>
+  </div>
+  <div class="small">Local demo with persistent localStorage. Roles: User, Admin, SuperAdmin. All % configurable.</div>
+</div>
+
+<!-- Home Dashboard -->
+<div class="section" id="homeDashboard">
+  <h2>Home dashboard</h2>
+  <div id="dashMsg" class="small">Login to see dashboard.</div>
+  <div class="two-col">
+    <div class="section">
+      <h3>System snapshot</h3>
+      <div id="dashUsers" class="small"></div>
+      <div id="dashWallets" class="small"></div>
+      <div id="dashPending" class="small"></div>
+    </div>
+    <div class="section" id="dashActions">
+      <h3>Quick actions</h3>
+      <div class="row">
+        <button id="qaRegistration">Registration</button>
+        <button id="qaVoucher">Voucher approvals</button>
+      </div>
+      <div class="row">
+        <button id="qaWithdraw">Withdraw approvals</button>
+        <button id="qaEligible">View incentive eligible</button>
+      </div>
+      <div class="row">
+        <button id="qaSettings">System settings</button>
+        <button id="qaPromotion">Promotion requests</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Logins -->
+<div class="grid">
+  <div class="section" id="secUserLogin">
+    <h2>User login</h2>
+    <label>Unique ID <input id="loginUserId" placeholder="FT2025XXXXXXXX" /></label>
+    <label>Password <input type="password" id="loginPass" /></label>
+    <button id="btnLoginUser">Login</button>
+    <div id="loginMsg" class="small"></div>
+  </div>
+  <div class="section" id="secAdminLogin">
+    <h2>Admin / SuperAdmin login</h2>
+    <label>Admin ID <input id="adminId" value="admin" /></label>
+    <label>Password <input type="password" id="adminPass" value="admin123" /></label>
+    <label>Role
+      <select id="adminRole">
+        <option value="admin">Admin</option>
+        <option value="superadmin">SuperAdmin</option>
+      </select>
+    </label>
+    <button id="btnLoginAdmin">Login</button>
+    <div id="adminLoginMsg" class="small"></div>
+  </div>
+</div>
+
+<!-- Registration & Profile -->
+<div class="grid">
+  <div class="section" id="secRegistration">
+    <h2>1. Registration</h2>
+    <label>Email <input type="email" id="regEmail" placeholder="user@example.com" /></label>
+    <label>Password <input type="password" id="regPass" /></label>
+    <label>Confirm password <input type="password" id="regPass2" /></label>
+    <label>Referral ID (optional) <input type="text" id="regReferral" placeholder="Upline Unique ID (FT...)" /></label>
+    <label><input type="checkbox" id="regTerms" /> Accept Terms & Conditions</label>
+    <button id="btnRegister">Submit & Send OTP</button>
+    <div id="regError" class="small" style="color:#b00020"></div>
+    <div id="otpBlock" class="hidden">
+      <h3>OTP verification</h3>
+      <div>OTP sent (demo): <span id="otpShown" class="badge"></span></div>
+      <label>Enter OTP <input type="text" id="otpInput" /></label>
+      <button id="btnVerifyOtp">Verify OTP → Generate Unique ID</button>
+      <div id="otpError" class="small" style="color:#b00020"></div>
+    </div>
+  </div>
+  <div class="section" id="secProfile">
+    <h2>2. Profile & privacy</h2>
+    <div id="profileInfo" class="small">Login to edit profile.</div>
+    <label>Name <input type="text" id="pName" /></label>
+    <label>Date of birth <input type="date" id="pDob" /></label>
+    <label>Address <input type="text" id="pAddress" /></label>
+    <label>NID/ID (optional) <input type="text" id="pNid" /></label>
+    <label><input type="checkbox" id="pPrivacy" /> Profile visible</label>
+    <button id="btnSaveProfile">Save profile</button>
+    <div id="profileMsg" class="small"></div>
+  </div>
+</div>
+
+<!-- Voucher & Admin approvals -->
+<div class="grid">
+  <div class="section" id="secVoucherUser">
+    <h2>3. Voucher verification</h2>
+    <div class="small">Bound to the logged-in user's Unique ID.</div>
+    <label>Voucher code <input type="text" id="voucherCode" placeholder="Generate in Admin C‑Panel" /></label>
+    <button id="btnSubmitVoucher">Submit voucher</button>
+    <div id="voucherMsg" class="small"></div>
+  </div>
+  <div class="section" id="secVoucherAdmin">
+    <h2>4. Admin — voucher approvals</h2>
+    <table class="table" id="voucherRequestsTableAdmin">
+      <thead><tr><th>User ID</th><th>Voucher</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Wallet & Subscription -->
+<div class="grid">
+  <div class="section" id="secWallet">
+    <h2>5. Wallet dashboard</h2>
+    <div id="walletInfo" class="small">Login to see wallet.</div>
+    <div class="wallet-box">
+      <div>Referral Income<br /><span id="refIncome">0</span>৳</div>
+      <div>Incentive Income<br /><span id="incIncome">0</span>৳</div>
+      <div>Ads Income<br /><span id="adsIncome">0</span>৳</div>
+    </div>
+    <h3>Company wallets</h3>
+    <div class="wallet-4">
+      <div>Main (<span id="cwMainPct">50</span>%)<br /><span id="compMain">0</span>৳</div>
+      <div>Referral (<span id="cwRefPct">30</span>%)<br /><span id="compRef">0</span>৳</div>
+      <div>Incentive (<span id="cwIncPct">20</span>%)<br /><span id="compInc">0</span>৳</div>
+      <div>Ads (<span id="cwAdsPct">0</span>%)<br /><span id="compAds">0</span>৳</div>
+    </div>
+  </div>
+  <div class="section" id="secSubscription">
+    <h2>6. Subscription</h2>
+    <div id="subInfo" class="small">Login to manage subscription.</div>
+    <label>Type
+      <select id="subType">
+        <option value="Monthly">Monthly</option>
+        <option value="Quarterly">Quarterly</option>
+        <option value="Yearly">Yearly</option>
+      </select>
+    </label>
+    <button id="btnStartSub">Start/renew subscription</button>
+    <div id="subMsg" class="small"></div>
+  </div>
+</div>
+
+<!-- Referral & Family -->
+<div class="grid">
+  <div class="section" id="secReferral">
+    <h2>7. Referral tree</h2>
+    <div id="refInfo" class="small">Login to view referral tree.</div>
+    <table class="table" id="refTable">
+      <thead><tr><th>Direct referrals</th><th>Verified</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="section" id="secFamily">
+    <h2>8. Family tree</h2>
+    <div id="familyInfo" class="small">Login to manage family.</div>
+    <div class="row">
+      <select id="famRelation">
+        <option>Father</option><option>Mother</option><option>Spouse</option>
+        <option>Son</option><option>Daughter</option>
+      </select>
+      <input id="famMemberId" placeholder="Member Unique ID (FT...)" />
+      <button id="btnAddFamily">Add member</button>
+    </div>
+    <table class="table" id="familyTable">
+      <thead><tr><th>Relation</th><th>Member ID</th><th>Name</th><th>Verified</th><th>Action</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="familyMsg" class="small"></div>
+  </div>
+</div>
+
+<!-- Income & Incentive -->
+<div class="grid">
+  <div class="section" id="secIncome">
+    <h2>9. Income distribution</h2>
+    <div class="small">Direct referral bonus = <span id="refBonusPctLabel">30</span>%. Company split Main/Referral/Incentive/Ads is configurable.</div>
+    <div class="row">
+      <input id="incomeSourceAmount" type="number" placeholder="Source fee amount (e.g., 500)" />
+      <button id="btnDistributeIncome">Distribute to company wallets</button>
+    </div>
+    <div id="incomeMsg" class="small"></div>
+
+    <h3>Withdrawal request</h3>
+    <div class="row">
+      <input id="withdrawAmount" type="number" placeholder="Minimum 500 points (1৳ = 1 point)" />
+      <button id="btnWithdraw">Request withdrawal</button>
+    </div>
+    <div id="withdrawMsg" class="small"></div>
+  </div>
+
+  <div class="section" id="secIncentive">
+    <h2>10. Incentive, promotion & distribution</h2>
+    <div id="incentiveInfo" class="small">Admin-configurable marks, slabs, frequency, and caps.</div>
+    <button id="btnCalcScore">Calculate score & credit bonus (user)</button>
+    <div id="incentiveMsg" class="small"></div>
+
+    <h3>Promotion</h3>
+    <button id="btnRequestPromotion">Request promotion (auto if score ≥80)</button>
+    <div id="promoMsg" class="small"></div>
+
+    <h3>Eligible users & distribution (Admin)</h3>
+    <div class="row">
+      <button id="btnViewEligible">View eligible list</button>
+      <button id="btnDistributeNow">Distribute incentives now</button>
+    </div>
+    <table class="table" id="eligibleTable">
+      <thead><tr><th>User ID</th><th>Score</th><th>Bonus %</th><th>Expected Bonus</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="eligibleMsg" class="small"></div>
+  </div>
+</div>
+
+<!-- Admin panel -->
+<div class="section" id="adminPanelSection" style="display:none;">
+  <h2>11. Admin C‑Panel</h2>
+
+  <div class="row">
+    <label><input type="checkbox" id="flagVerification" checked /> Verification ON</label>
+    <label><input type="checkbox" id="flagReferralIncome" checked /> Referral Income ON</label>
+    <label><input type="checkbox" id="flagIncentive" checked /> Incentive Engine ON</label>
+    <label><input type="checkbox" id="flagPromotionAuto" checked /> Promotion Auto ON</label>
+    <label><input type="checkbox" id="flagIncentiveDist" checked /> Incentive Distribution ON</label>
+  </div>
+
+  <h3>System settings (% configurable)</h3>
+  <div class="row">
+    <label>Referral Bonus % <input id="setReferralBonus" type="number" value="30"></label>
+    <label>Company Main % <input id="setCompMain" type="number" value="50"></label>
+    <label>Company Referral % <input id="setCompRef" type="number" value="30"></label>
+    <label>Company Incentive % <input id="setCompInc" type="number" value="20"></label>
+  </div>
+  <div class="row">
+    <label>Company Ads % (future) <input id="setCompAds" type="number" value="0"></label>
+    <label>Referral verified ratio required % <input id="setReferralVerifiedPct" type="number" value="50"></label>
+    <label>Family verified ratio required % <input id="setFamilyVerifiedPct" type="number" value="50"></label>
+  </div>
+
+  <h3>Incentive config (marks & slabs)</h3>
+  <div class="row">
+    <label>User Verified Marks <input id="marksUserVerified" type="number" value="30"></label>
+    <label>Team Ratio Marks <input id="marksTeamRatio" type="number" value="20"></label>
+    <label>Active Subscription Marks <input id="marksSubscription" type="number" value="20"></label>
+  </div>
+  <div class="row">
+    <label>Family Highest Verified Marks <input id="marksFamily" type="number" value="10"></label>
+    <label>ID Card / Tree / Book Marks <input id="marksIdCard" type="number" value="10"></label>
+    <label>Training & Reports Marks <input id="marksTraining" type="number" value="10"></label>
+  </div>
+  <div class="row">
+    <label>Slab 50–60 Bonus % <input id="slab5060" type="number" value="10"></label>
+    <label>Slab 60–80 Bonus % <input id="slab6080" type="number" value="15"></label>
+    <label>Slab 80–100 Bonus % <input id="slab80100" type="number" value="20"></label>
+  </div>
+
+  <h3>Promotion score card config</h3>
+  <div class="row">
+    <label>Highest Direct Referral <input id="promoReferral" type="number" value="20"></label>
+    <label>User Verified <input id="promoUserVerified" type="number" value="10"></label>
+    <label>Team Verification Ratio <input id="promoTeamRatio" type="number" value="30"></label>
+  </div>
+  <div class="row">
+    <label>Subscribed Users <input id="promoSubscribed" type="number" value="10"></label>
+    <label>Family Verified Count <input id="promoFamily" type="number" value="10"></label>
+    <label>Team Total Verified <input id="promoTeamTotal" type="number" value="20"></label>
+  </div>
+
+  <h3>Incentive distribution config</h3>
+  <div class="row">
+    <label>Frequency
+      <select id="distFrequency">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+      </select>
+    </label>
+    <label>Max Distribution Amount (৳)
+      <input id="distMaxAmount" type="number" value="500">
+    </label>
+    <label>Max Incentive/User (৳)
+      <input id="maxIncentiveUser" type="number" value="1000">
+    </label>
+    <label>Max Incentive/Period (৳)
+      <input id="maxIncentivePeriod" type="number" value="5000">
+    </label>
+  </div>
+  <button id="btnSaveSettings">Save Settings</button>
+  <div id="settingsMsg" class="small"></div>
+
+  <h3>Admin management</h3>
+  <div class="row">
+    <input id="newAdminId" placeholder="New admin ID (demo)" />
+    <button id="btnCreateAdmin">Create admin (demo stub)</button>
+  </div>
+  <div id="adminCreateMsg" class="small"></div>
+
+  <h3>Voucher generation</h3>
+  <div class="row">
+    <input id="voucherPrefix" placeholder="Voucher prefix (FNF)" value="FNF" />
+    <input id="voucherAmount" type="number" placeholder="Voucher amount (৳)" value="500" />
+    <button id="btnGenerateVoucher">Generate voucher</button>
+  </div>
+  <table class="table" id="voucherGenTable">
+    <thead><tr><th>Code</th><th>Amount</th><th>Status</th><th>Copy</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Admin — voucher approvals</h3>
+  <table class="table" id="voucherRequestsTableAdmin2">
+    <thead><tr><th>User ID</th><th>Voucher</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Admin — withdrawals</h3>
+  <table class="table" id="withdrawTable">
+    <thead><tr><th>User ID</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Promotion requests</h3>
+  <table class="table" id="promotionTable">
+    <thead><tr><th>User ID</th><th>Score</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Promotion list (approved members)</h3>
+  <table class="table" id="promotionList">
+    <thead><tr><th>User ID</th><th>Score</th><th>Promotion date</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Referral overview</h3>
+  <table class="table" id="refOverviewTable">
+    <thead><tr><th>Upline ID</th><th>Total referrals</th><th>Verified</th><th>Ratio</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Immutable audit logs</h3>
+  <table class="table" id="auditTable">
+    <thead><tr><th>Timestamp</th><th>User ID</th><th>Action</th><th>Details</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+/* ===== Storage & helpers ===== */
+const LS = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},
+  set(k,v){localStorage.setItem(k,JSON.stringify(v));},
+  push(k,item){const arr=LS.get(k,[]);arr.push(item);LS.set(k,arr);return arr;}
+};
+function nowIso(){ return new Date().toISOString(); }
+function randInt(n){ return Math.floor(Math.random()*n); }
+function genUserId(){ const y=new Date().getFullYear(); const r=""+(10000000+randInt(90000000)); return "FT"+y+r; }
+function genVoucher(prefix="FNF"){ return prefix+("0000"+randInt(10000)).slice(-4); }
+function todayKey(){ return new Date().toDateString(); }
+function getWeekNumber(d){
+  d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const dayNum=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-dayNum);
+  const yearStart=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d-yearStart)/86400000)+1)/7);
+}
+
+/* ===== RBAC ===== */
+const ROLES = { USER:"user", ADMIN:"admin", SUPERADMIN:"superadmin" };
+const PERM = {
+  registration:[ROLES.USER],
+  profile:[ROLES.USER],
+  voucherSubmit:[ROLES.USER],
+  voucherManage:[ROLES.ADMIN,ROLES.SUPERADMIN],
+  walletView:[ROLES.USER,ROLES.ADMIN,ROLES.SUPERADMIN],
+  subscription:[ROLES.USER],
+  withdrawRequest:[ROLES.USER],
+  withdrawApprove:[ROLES.ADMIN,ROLES.SUPERADMIN],
+  referralTree:[ROLES.USER,ROLES.ADMIN,ROLES.SUPERADMIN],
+  familyTree:[ROLES.USER],
+  incentiveScore:[ROLES.USER],
+  incentiveDistribution:[ROLES.ADMIN,ROLES.SUPERADMIN],
+  auditLogs:[ROLES.ADMIN,ROLES.SUPERADMIN],
+  systemSettings:[ROLES.ADMIN,ROLES.SUPERADMIN],
+  promotionManage:[ROLES.ADMIN,ROLES.SUPERADMIN]
+};
+function getSession(){ return LS.get("session",{ userId:null, role:ROLES.USER }); }
+function setSessionState(s){ LS.set("session",s); renderSession(); renderAll(); renderDashboard(); bindQuickActions(); }
+function clearSession(){ setSessionState({ userId:null, role:ROLES.USER }); }
+function canAccess(module){ const role=getSession().role; return PERM[module]?.includes(role); }
+
+/* ===== Defaults ===== */
+function defaultSettings(){
+  return {
+    referralBonus: 30,
+    compMain: 50,
+    compRef: 30,
+    compInc: 20,
+    compAds: 0,
+    requiredReferralVerifiedPct: 50,
+    requiredFamilyVerifiedPct: 50,
+    scoreMarks: { userVerified:30, teamRatio:20, subscription:20, familyVerified:10, idCard:10, training:10 },
+    incentiveSlabs: [ {min:50,max:60,bonus:10},{min:60,max:80,bonus:15},{min:80,max:101,bonus:20} ],
+    incentiveDistribution: { frequency:"daily", maxAmount:500 },
+    incentiveLimits: { perUser:1000, perPeriod:5000 },
+    promotionConfig: { highestReferral:20, userVerified:10, teamRatio:30, subscribedUsers:10, familyVerified:10, teamTotalVerified:20 }
+  };
+}
+
+/* ===== Audit ===== */
+function logAudit(userId, action, details){ LS.push("auditLogs",{ ts:nowIso(), userId, action, details }); renderAuditLogs(); }
+function renderAuditLogs(){
+  const table=document.querySelector("#auditTable"); if(!table) return;
+  table.parentElement.style.display = canAccess("auditLogs") ? "" : "none";
+  const tbody=table.querySelector("tbody"); tbody.innerHTML="";
+  LS.get("auditLogs",[]).slice().reverse().forEach(l=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${l.ts}</td><td>${l.userId||""}</td><td>${l.action}</td><td>${l.details}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ===== Company wallet ===== */
+function ensureCompanyWallet(){
+  const s=LS.get("systemSettings",defaultSettings());
+  const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 });
+  LS.set("companyWallet",cw);
+  ["cwMainPct","cwRefPct","cwIncPct","cwAdsPct"].forEach((id,i)=>{
+    document.getElementById(id).textContent=[s.compMain,s.compRef,s.compInc,s.compAds][i];
+  });
+}
+function renderCompanyWallet(){
+  const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 });
+  document.getElementById("compMain").textContent=cw.main;
+  document.getElementById("compRef").textContent=cw.referral;
+  document.getElementById("compInc").textContent=cw.incentive;
+  document.getElementById("compAds").textContent=cw.ads;
+}
+
+/* ===== Dashboard + Quick Actions ===== */
+function renderDashboard(){
+  const s=getSession();
+  const dashMsg=document.getElementById("dashMsg");
+  const actions=document.getElementById("dashActions");
+  const users=LS.get("users",[]);
+  const verified=users.filter(u=>u.verified).length;
+  const unverified=users.length-verified;
+  const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 });
+  const vouchers=LS.get("voucherRequests",[]).filter(r=>r.status==="Pending").length;
+  const withdraws=LS.get("withdrawRequests",[]).filter(r=>r.status==="Pending").length;
+  const promos=LS.get("promotionRequests",[]).filter(r=>r.status.includes("Pending")).length;
+  document.getElementById("dashUsers").textContent = `Total users: ${users.length} | Verified: ${verified} | Unverified: ${unverified}`;
+  document.getElementById("dashWallets").textContent = `Company wallets → Main: ${cw.main}৳ | Referral: ${cw.referral}৳ | Incentive: ${cw.incentive}৳ | Ads: ${cw.ads}৳`;
+  document.getElementById("dashPending").textContent = `Pending → Vouchers: ${vouchers}, Withdrawals: ${withdraws}, Promotions: ${promos}`;
+  if (s.role===ROLES.ADMIN || s.role===ROLES.SUPERADMIN) { dashMsg.textContent = "Admin / SuperAdmin dashboard ready."; actions.style.display=""; }
+  else if (s.userId) { dashMsg.textContent = "User dashboard: view wallet, subscription, referral/family."; actions.style.display="none"; }
+  else { dashMsg.textContent = "Login to see dashboard."; actions.style.display="none"; }
+}
+function bindQuickActions(){
+  const byId = (id)=>document.getElementById(id);
+  byId("qaRegistration").onclick = ()=>byId("secRegistration").scrollIntoView({behavior:"smooth"});
+  byId("qaVoucher").onclick = ()=>{ renderVoucherRequestsAdmin(); byId("secVoucherAdmin").scrollIntoView({behavior:"smooth"}); };
+  byId("qaWithdraw").onclick = ()=>{ renderWithdrawAdmin(); byId("withdrawTable").scrollIntoView({behavior:"smooth"}); };
+  byId("qaEligible").onclick = ()=>{ renderEligibleList(); byId("secIncentive").scrollIntoView({behavior:"smooth"}); };
+  byId("qaSettings").onclick = ()=>byId("adminPanelSection").scrollIntoView({behavior:"smooth"});
+  byId("qaPromotion").onclick = ()=>{ renderPromotionRequests(); byId("promotionTable").scrollIntoView({behavior:"smooth"}); };
+}
+
+/* ===== Settings & Flags ===== */
+function applyFlagsToUI(){
+  const f=LS.get("systemFlags",{ verification:true, referralIncome:true, incentive:true, promotionAuto:true, incentiveDist:true });
+  document.getElementById("flagVerification").checked=f.verification;
+  document.getElementById("flagReferralIncome").checked=f.referralIncome;
+  document.getElementById("flagIncentive").checked=f.incentive;
+  document.getElementById("flagPromotionAuto").checked=f.promotionAuto;
+  document.getElementById("flagIncentiveDist").checked=f.incentiveDist;
+}
+function loadSettingsUI(){
+  const s=LS.get("systemSettings",defaultSettings());
+  document.getElementById("setReferralBonus").value=s.referralBonus;
+  document.getElementById("setCompMain").value=s.compMain;
+  document.getElementById("setCompRef").value=s.compRef;
+  document.getElementById("setCompInc").value=s.compInc;
+  document.getElementById("setCompAds").value=s.compAds;
+  document.getElementById("refBonusPctLabel").textContent=s.referralBonus;
+
+  document.getElementById("setReferralVerifiedPct").value=s.requiredReferralVerifiedPct;
+  document.getElementById("setFamilyVerifiedPct").value=s.requiredFamilyVerifiedPct;
+
+  document.getElementById("marksUserVerified").value=s.scoreMarks.userVerified;
+  document.getElementById("marksTeamRatio").value=s.scoreMarks.teamRatio;
+  document.getElementById("marksSubscription").value=s.scoreMarks.subscription;
+  document.getElementById("marksFamily").value=s.scoreMarks.familyVerified;
+  document.getElementById("marksIdCard").value=s.scoreMarks.idCard;
+  document.getElementById("marksTraining").value=s.scoreMarks.training;
+
+  const slab5060=s.incentiveSlabs.find(x=>x.min===50&&x.max===60);
+  const slab6080=s.incentiveSlabs.find(x=>x.min===60&&x.max===80);
+  const slab80100=s.incentiveSlabs.find(x=>x.min===80);
+  document.getElementById("slab5060").value=slab5060?slab5060.bonus:10;
+  document.getElementById("slab6080").value=slab6080?slab6080.bonus:15;
+  document.getElementById("slab80100").value=slab80100?slab80100.bonus:20;
+
+  document.getElementById("promoReferral").value=s.promotionConfig.highestReferral;
+  document.getElementById("promoUserVerified").value=s.promotionConfig.userVerified;
+  document.getElementById("promoTeamRatio").value=s.promotionConfig.teamRatio;
+  document.getElementById("promoSubscribed").value=s.promotionConfig.subscribedUsers;
+  document.getElementById("promoFamily").value=s.promotionConfig.familyVerified;
+  document.getElementById("promoTeamTotal").value=s.promotionConfig.teamTotalVerified;
+
+  document.getElementById("distFrequency").value=s.incentiveDistribution.frequency;
+  document.getElementById("distMaxAmount").value=s.incentiveDistribution.maxAmount;
+  document.getElementById("maxIncentiveUser").value=s.incentiveLimits.perUser;
+  document.getElementById("maxIncentivePeriod").value=s.incentiveLimits.perPeriod;
+
+  document.getElementById("adminPanelSection").style.display = canAccess("systemSettings") ? "" : "none";
+  ensureCompanyWallet();
+}
+document.getElementById("btnSaveSettings").onclick=()=>{
+  if(!canAccess("systemSettings")) return alert("Access denied.");
+  const updated={
+    referralBonus:+document.getElementById("setReferralBonus").value,
+    compMain:+document.getElementById("setCompMain").value,
+    compRef:+document.getElementById("setCompRef").value,
+    compInc:+document.getElementById("setCompInc").value,
+    compAds:+document.getElementById("setCompAds").value,
+    requiredReferralVerifiedPct:+document.getElementById("setReferralVerifiedPct").value,
+    requiredFamilyVerifiedPct:+document.getElementById("setFamilyVerifiedPct").value,
+    scoreMarks:{
+      userVerified:+document.getElementById("marksUserVerified").value,
+      teamRatio:+document.getElementById("marksTeamRatio").value,
+      subscription:+document.getElementById("marksSubscription").value,
+      familyVerified:+document.getElementById("marksFamily").value,
+      idCard:+document.getElementById("marksIdCard").value,
+      training:+document.getElementById("marksTraining").value
+    },
+    incentiveSlabs:[
+      {min:50,max:60,bonus:+document.getElementById("slab5060").value},
+      {min:60,max:80,bonus:+document.getElementById("slab6080").value},
+      {min:80,max:101,bonus:+document.getElementById("slab80100").value}
+    ],
+    promotionConfig:{
+      highestReferral:+document.getElementById("promoReferral").value,
+      userVerified:+document.getElementById("promoUserVerified").value,
+      teamRatio:+document.getElementById("promoTeamRatio").value,
+      subscribedUsers:+document.getElementById("promoSubscribed").value,
+      familyVerified:+document.getElementById("promoFamily").value,
+      teamTotalVerified:+document.getElementById("promoTeamTotal").value
+    },
+    incentiveDistribution:{
+      frequency:document.getElementById("distFrequency").value,
+      maxAmount:+document.getElementById("distMaxAmount").value
+    },
+    incentiveLimits:{
+      perUser:+document.getElementById("maxIncentiveUser").value,
+      perPeriod:+document.getElementById("maxIncentivePeriod").value
+    }
+  };
+  LS.set("systemSettings",updated);
+  document.getElementById("settingsMsg").textContent="Settings saved.";
+  logAudit("SYSTEM","SETTINGS_UPDATED",JSON.stringify(updated));
+  loadSettingsUI();
+};
+document.getElementById("btnCreateAdmin").onclick=()=>{
+  if(!canAccess("systemSettings")) return alert("Access denied.");
+  const id=(document.getElementById("newAdminId").value||"").trim();
+  if(!id) return document.getElementById("adminCreateMsg").textContent="Enter new admin ID.";
+  logAudit("SYSTEM","ADMIN_CREATED_DEMO",`id=${id}`);
+  document.getElementById("adminCreateMsg").textContent="Admin created (demo only).";
+
+/* Demo only, no real admin store */
+};
+
+/* ===== Session & login ===== */
+function renderSession(){
+  const s=getSession();
+  const info=document.getElementById("sessionInfo");
+  const btn=document.getElementById("btnLogout");
+  if(s.userId){ info.textContent=`Logged in: ${s.userId} (${s.role})`; btn.classList.remove("hidden"); }
+  else { info.textContent = s.role===ROLES.USER ? "Not logged in" : `Admin mode (${s.role})`; btn.classList.remove("hidden"); }
+
+  document.getElementById("secRegistration").style.display = canAccess("registration") ? "" : "none";
+  document.getElementById("secProfile").style.display = canAccess("profile") ? "" : "none";
+  document.getElementById("secVoucherUser").style.display = canAccess("voucherSubmit") ? "" : "none";
+  document.getElementById("secVoucherAdmin").style.display = canAccess("voucherManage") ? "" : "none";
+  document.getElementById("secWallet").style.display = canAccess("walletView") ? "" : "none";
+  document.getElementById("secSubscription").style.display = canAccess("subscription") ? "" : "none";
+  document.getElementById("secReferral").style.display = canAccess("referralTree") ? "" : "none";
+  document.getElementById("secFamily").style.display = canAccess("familyTree") ? "" : "none";
+  document.getElementById("secIncome").style.display = canAccess("withdrawRequest") ? "" : "none";
+  document.getElementById("secIncentive").style.display = canAccess("incentiveScore") || canAccess("incentiveDistribution") ? "" : "none";
+
+  ensureCompanyWallet();
+  renderCompanyWallet();
+}
+document.getElementById("btnLoginUser").onclick=()=>{
+  const uid=document.getElementById("loginUserId").value.trim();
+  const pass=document.getElementById("loginPass").value;
+  const u=LS.get("users",[]).find(x=>x.userId===uid && x.pass===pass);
+  const msg=document.getElementById("loginMsg");
+  if(!u){ msg.textContent="Invalid User ID or password."; return; }
+  setSessionState({ userId:uid, role:ROLES.USER });
+  msg.textContent="Logged in.";
+};
+document.getElementById("btnLoginAdmin").onclick=()=>{
+  const aid=document.getElementById("adminId").value.trim();
+  const pass=document.getElementById("adminPass").value;
+  const role=document.getElementById("adminRole").value;
+  const msg=document.getElementById("adminLoginMsg");
+  if(aid==="admin" && pass==="admin123"){
+    setSessionState({ userId:null, role: role==="superadmin"?ROLES.SUPERADMIN:ROLES.ADMIN });
+    msg.textContent=`${role} logged in. Redirected to dashboard.`;
+    document.getElementById("homeDashboard").scrollIntoView({behavior:"smooth"});
+  } else { msg.textContent="Invalid admin credentials."; }
+};
+document.getElementById("btnLogout").onclick=()=>clearSession();
+
+/* ===== Registration with referral validation ===== */
+let currentOtp=null; let regUplineId="ROOT_ADMIN";
+function validateReferralAtRegistration(refId){
+  const s=LS.get("systemSettings",defaultSettings());
+  const users=LS.get("users",[]);
+  if(!refId) return { valid:true, upline:"ROOT_ADMIN", msg:"Default upline ROOT_ADMIN." };
+  const upline=users.find(u=>u.userId===refId);
+  if(!upline || !upline.verified) return { valid:false, upline:null, msg:"Referral not allowed. Contact upline." };
+  const refTree=LS.get(`ref_${refId}`,{ list:[] });
+  const verifiedCount=refTree.list.filter(id=>{
+    const u=users.find(x=>x.userId===id); return u && u.verified;
+  }).length;
+  const ratio=refTree.list.length?(verifiedCount/refTree.list.length):1;
+  if(ratio < (s.requiredReferralVerifiedPct/100)) return { valid:false, upline:null, msg:`Referral ratio too low (<${s.requiredReferralVerifiedPct}%).` };
+  return { valid:true, upline:refId, msg:"Referral valid." };
+}
+document.getElementById("btnRegister").onclick=()=>{
+  if(!canAccess("registration")) return alert("Access denied.");
+  const email=document.getElementById("regEmail").value.trim();
+  const pass=document.getElementById("regPass").value;
+  const pass2=document.getElementById("regPass2").value;
+  const refId=document.getElementById("regReferral").value.trim();
+  const terms=document.getElementById("regTerms").checked;
+  const err=document.getElementById("regError"); err.textContent="";
+  if(!email || !email.includes("@")) return err.textContent="Invalid email.";
+  if(!pass || pass!==pass2) return err.textContent="Passwords must match.";
+  if(!terms) return err.textContent="Accept Terms & Conditions.";
+  const check=validateReferralAtRegistration(refId);
+  if(!check.valid){ err.textContent=check.msg; return; }
+  regUplineId=check.upline||"ROOT_ADMIN";
+  currentOtp=""+(100000+randInt(900000));
+  document.getElementById("otpShown").textContent=currentOtp;
+  document.getElementById("otpBlock").classList.remove("hidden");
+};
+document.getElementById("btnVerifyOtp").onclick=()=>{
+  const input=document.getElementById("otpInput").value.trim();
+  const err=document.getElementById("otpError"); err.textContent="";
+  if(input!==currentOtp) return err.textContent="Incorrect OTP.";
+  const userId=genUserId();
+  const email=document.getElementById("regEmail").value.trim();
+  const pass=document.getElementById("regPass").value;
+  const users=LS.get("users",[]); users.push({ userId, email, pass, verified:false }); LS.set("users",users);
+  LS.set(`ref_${userId}`,{ upline:regUplineId||"ROOT_ADMIN", list:[] });
+  if(regUplineId && regUplineId!=="ROOT_ADMIN"){
+    const up=LS.get(`ref_${regUplineId}`,{ upline:"ROOT_ADMIN", list:[] });
+    if(!up.list.includes(userId)){ up.list.push(userId); LS.set(`ref_${regUplineId}`,up); }
+  } else {
+    const root=LS.get(`ref_ROOT_ADMIN`,{ upline:null, list:[] });
+    if(!root.list.includes(userId)){ root.list.push(userId); LS.set(`ref_ROOT_ADMIN`,root); }
+  }
+  document.getElementById("otpBlock").classList.add("hidden");
+  alert("OTP verified. Your Unique ID: "+userId);
+  setSessionState({ userId, role:ROLES.USER });
+  logAudit(userId,"OTP_VERIFIED",`upline=${regUplineId}`);
+};
+
+/* ===== Profile ===== */
+document.getElementById("btnSaveProfile").onclick=()=>{
+  if(!canAccess("profile")) return alert("Access denied.");
+  const s=getSession(); if(!s.userId) return alert("Login first.");
+  const profile={
+    userId:s.userId,
+    name:document.getElementById("pName").value.trim(),
+    dob:document.getElementById("pDob").value,
+    address:document.getElementById("pAddress").value.trim(),
+    nid:document.getElementById("pNid").value.trim(),
+    privacy:document.getElementById("pPrivacy").checked
+  };
+  LS.set(`profile_${s.userId}`,profile);
+  document.getElementById("profileMsg").textContent="Profile saved.";
+  logAudit(s.userId,"PROFILE_SAVED","updated");
+  renderProfileInfo();
+};
+function renderProfileInfo(){
+  const s=getSession(); const el=document.getElementById("profileInfo"); if(!s.userId){ el.textContent="Login to edit profile."; return; }
+  const p=LS.get(`profile_${s.userId}`,null);
+  el.textContent = p ? `User: ${p.userId} | Name: ${p.name||"-"} | Visible: ${p.privacy?"Yes":"No"}` : `User: ${s.userId} | No profile saved`;
+}
+
+/* ===== Voucher: user submit ===== */
+document.getElementById("btnSubmitVoucher").onclick=()=>{
+  if(!canAccess("voucherSubmit")) return alert("Access denied.");
+  const s=getSession(); if(!s.userId) return alert("Login first.");
+  const code=document.getElementById("voucherCode").value.trim();
+  if(!code) return document.getElementById("voucherMsg").textContent="Enter voucher code.";
+  const genList=LS.get("generatedVouchers",[]);
+  const found=genList.find(v=>v.code===code);
+  if(!found) return document.getElementById("voucherMsg").textContent="Voucher not found.";
+  if(found.status==="Used") return document.getElementById("voucherMsg").textContent="Voucher already used.";
+  const reqs=LS.get("voucherRequests",[]);
+  if(reqs.find(r=>r.userId===s.userId && r.status==="Pending")) return document.getElementById("voucherMsg").textContent="Pending request exists.";
+  reqs.push({ userId:s.userId, code, status:"Pending", ts:nowIso() }); LS.set("voucherRequests",reqs);
+  document.getElementById("voucherMsg").textContent="Voucher submitted. Await admin approval.";
+  logAudit(s.userId,"VOUCHER_SUBMIT",`Code=${code}`);
+  renderVoucherRequestsAdmin();
+  renderVoucherRequestsAdmin2();
+};
+
+/* ===== Voucher: admin approvals ===== */
+function renderVoucherRequestsAdmin(){
+  const sec=document.getElementById("voucherRequestsTableAdmin"); if(!sec) return;
+  sec.parentElement.style.display = canAccess("voucherManage") ? "" : "none";
+  const tbody=sec.querySelector("tbody"); tbody.innerHTML="";
+  const reqs=LS.get("voucherRequests",[]);
+  reqs.forEach((r,idx)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${r.userId}</td><td>${r.code}</td><td>${r.status}</td>
+    <td>${canAccess("voucherManage")&&r.status==="Pending"?`
+      <button onclick="approveVoucherReq(${idx})">Approve</button>
+      <button onclick="rejectVoucherReq(${idx})">Reject</button>`:"—"}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function renderVoucherRequestsAdmin2(){ renderVoucherRequestsAdmin(); }
+function approveVoucherReq(i){
+  if(!canAccess("voucherManage")) return alert("Access denied.");
+  const reqs=LS.get("voucherRequests",[]); const r=reqs[i]; if(!r||r.status!=="Pending") return;
+  const gen=LS.get("generatedVouchers",[]); const v=gen.find(x=>x.code===r.code);
+  if(v){ v.status="Used"; LS.set("generatedVouchers",gen); renderVoucherGen(); }
+  r.status="Approved"; LS.set("voucherRequests",reqs);
+  const users=LS.get("users",[]); const u=users.find(x=>x.userId===r.userId);
+  if(u){ u.verified=true; LS.set("users",users); }
+  createWalletIfNotExists(r.userId);
+  const exp=new Date(); exp.setMonth(exp.getMonth()+6);
+  LS.set(`sub_${r.userId}`,{ type:"Free", active:true, expiry:exp.toISOString(), freeMonths:6 });
+  const ref=LS.get(`ref_${r.userId}`,{ upline:"ROOT_ADMIN", list:[] }); if(!ref.upline) ref.upline="ROOT_ADMIN"; LS.set(`ref_${r.userId}`,ref);
+  const settings=LS.get("systemSettings",defaultSettings());
+  const voucherAmount=(v&&v.amount)?v.amount:500;
+  const bonus=Math.round(voucherAmount*(settings.referralBonus/100));
+  const uplineId=ref.upline; const uplineUser=users.find(x=>x.userId===uplineId);
+  if(uplineUser && uplineUser.verified){
+    const uw=LS.get(`wallet_${uplineId}`,null)||{ ref:0, inc:0, ads:0, points:0 };
+    uw.ref+=bonus; uw.points+=bonus; LS.set(`wallet_${uplineId}`,uw);
+    logAudit(uplineId,"REFERRAL_INCOME_VERIFICATION",`Downline=${r.userId}, Bonus=${bonus}`);
+  } else {
+    const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 }); cw.main+=bonus; LS.set("companyWallet",cw);
+    logAudit("COMPANY","REFERRAL_INCOME_REDIRECT",`Downline=${r.userId}, Bonus=${bonus}`);
+  }
+  logAudit(r.userId,"VERIFICATION_APPROVED",`Voucher=${r.code}`);
+  renderAll();
+}
+function rejectVoucherReq(i){
+  if(!canAccess("voucherManage")) return alert("Access denied.");
+  const reqs=LS.get("voucherRequests",[]); const r=reqs[i]; if(!r||r.status!=="Pending") return;
+  r.status="Rejected"; LS.set("voucherRequests",reqs);
+  logAudit(r.userId,"VERIFICATION_REJECTED",`Voucher=${r.code}`);
+  renderAll();
+}
+
+/* ===== Wallet ===== */
+function createWalletIfNotExists(userId){
+  let w=LS.get(`wallet_${userId}`,null);
+  if(!w){ w={ ref:0, inc:0, ads:0, points:0 }; LS.set(`wallet_${userId}`,w); logAudit(userId,"WALLET_CREATED","linked"); }
+}
+function renderWallet(){
+  const s=getSession(); const el=document.getElementById("walletInfo");
+  if(!canAccess("walletView")){ document.getElementById("secWallet").style.display="none"; return; }
+  document.getElementById("secWallet").style.display="";
+  if(!s.userId){ el.textContent="Login to see wallet."; ["refIncome","incIncome","adsIncome"].forEach(id=>document.getElementById(id).textContent=0); return; }
+  const w=LS.get(`wallet_${s.userId}`,null);
+  el.textContent = w ? `Wallet exists for ${s.userId}` : `Wallet not created (requires verification).`;
+  document.getElementById("refIncome").textContent=w?w.ref:0;
+  document.getElementById("incIncome").textContent=w?w.inc:0;
+  document.getElementById("adsIncome").textContent=w?w.ads:0;
+}
+
+/* ===== Subscription ===== */
+document.getElementById("btnStartSub").onclick=()=>{
+  if(!canAccess("subscription")) return alert("Access denied.");
+  const s=getSession(); if(!s.userId) return alert("Login first.");
+  const users=LS.get("users",[]); const u=users.find(x=>x.userId===s.userId);
+  if(!u || !u.verified) return document.getElementById("subMsg").textContent="User must be verified to subscribe.";
+  const type=document.getElementById("subType").value;
+  const w=LS.get(`wallet_${s.userId}`,null); if(!w) return document.getElementById("subMsg").textContent="Wallet not found.";
+  let cost=type==="Monthly"?200:type==="Quarterly"?500:1500;
+  const sub=LS.get(`sub_${s.userId}`,{ type:null, active:false, expiry:null, freeMonths:0 });
+  if(sub.active && new Date(sub.expiry)>new Date()) return document.getElementById("subMsg").textContent="Subscription already active.";
+  if((w.points||0)<cost) return document.getElementById("subMsg").textContent="Insufficient points.";
+  w.points-=cost; LS.set(`wallet_${s.userId}`,w);
+  // Income distribution from subscription fee
+  const settings=LS.get("systemSettings",defaultSettings());
+  const refRec=LS.get(`ref_${s.userId}`,{ upline:"ROOT_ADMIN", list:[] });
+  const usersList=LS.get("users",[]);
+  const uplineUser=usersList.find(x=>x.userId===refRec.upline);
+  const refBonusAmt=Math.round(cost*(settings.referralBonus/100));
+  if(uplineUser && uplineUser.verified){
+    const uw=LS.get(`wallet_${uplineUser.userId}`,null)||{ ref:0, inc:0, ads:0, points:0 };
+    uw.ref+=refBonusAmt; uw.points+=refBonusAmt; LS.set(`wallet_${uplineUser.userId}`,uw);
+    logAudit(uplineUser.userId,"REFERRAL_INCOME_SUBSCRIPTION",`Downline=${s.userId}, Bonus=${refBonusAmt}`);
+  } else {
+    const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 }); cw.main+=refBonusAmt; LS.set("companyWallet",cw);
+    logAudit("COMPANY","REFERRAL_REDIRECT_SUBSCRIPTION",`Downline=${s.userId}, Bonus=${refBonusAmt}`);
+  }
+  const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 });
+  cw.main+=Math.round(cost*(settings.compMain/100));
+  cw.referral+=Math.round(cost*(settings.compRef/100));
+  cw.incentive+=Math.round(cost*(settings.compInc/100));
+  cw.ads+=Math.round(cost*(settings.compAds/100));
+  LS.set("companyWallet",cw);
+
+  const exp=new Date(); if(type==="Monthly") exp.setMonth(exp.getMonth()+1); if(type==="Quarterly") exp.setMonth(exp.getMonth()+3); if(type==="Yearly") exp.setFullYear(exp.getFullYear()+1);
+  LS.set(`sub_${s.userId}`,{ type, active:true, expiry:exp.toISOString(), freeMonths:0 });
+  logAudit(s.userId,"SUBSCRIPTION_START",`Type=${type}, Cost=${cost}`);
+  document.getElementById("subMsg").textContent=`Subscription ${type} active. Deducted ${cost} points.`;
+  renderSubInfo(); renderCompanyWallet();
+};
+function renderSubInfo(){
+  const s=getSession(); const el=document.getElementById("subInfo"); if(!s.userId){ el.textContent="Login to manage subscription."; return; }
+  const sub=LS.get(`sub_${s.userId}`,null); el.textContent=sub&&sub.active?`Active: ${sub.type}, Expiry: ${sub.expiry}`:"No active subscription";
+}
+
+/* ===== Referral ===== */
+function renderReferral(){
+  const sec=document.getElementById("secReferral"); sec.style.display = canAccess("referralTree") ? "" : "none";
+  if(sec.style.display==="none") return;
+  const s=getSession(); const info=document.getElementById("refInfo"); const tbody=document.querySelector("#refTable tbody");
+  if(!s.userId){ info.textContent="Login to view referral tree."; tbody.innerHTML=""; return; }
+  const ref=LS.get(`ref_${s.userId}`,{ upline:"ROOT_ADMIN", list:[] });
+  const users=LS.get("users",[]);
+  info.textContent=`Upline: ${ref.upline} | Direct count: ${ref.list.length}`;
+  tbody.innerHTML="";
+  ref.list.forEach(id=>{
+    const v=!!(users.find(u=>u.userId===id && u.verified));
+    const tr=document.createElement("tr"); tr.innerHTML=`<td>${id}</td><td>${v?"Yes":"No"}</td>`; tbody.appendChild(tr);
+  });
+}
+
+/* ===== Family ===== */
+document.getElementById("btnAddFamily").onclick=()=>{
+  if(!canAccess("familyTree")) return alert("Access denied.");
+  const s=getSession(); if(!s.userId) return alert("Login first.");
+  const users=LS.get("users",[]); const me=users.find(x=>x.userId===s.userId);
+  if(!me || !me.verified) return document.getElementById("familyMsg").textContent="Only verified users can create family.";
+  const rel=document.getElementById("famRelation").value;
+  const mid=document.getElementById("famMemberId").value.trim();
+  if(!mid || mid===s.userId) return document.getElementById("familyMsg").textContent="Invalid member ID.";
+  const fam=LS.get(`family_${s.userId}`,[]);
+  if(fam.find(f=>f.memberId===mid)) return document.getElementById("familyMsg").textContent="Duplicate member ID blocked.";
+  const memberRec=users.find(x=>x.userId===mid);
+  fam.push({ relation:rel, memberId:mid, verified:!!(memberRec&&memberRec.verified) });
+  LS.set(`family_${s.userId}`,fam);
+  logAudit(s.userId,"FAMILY_ADD",`Relation=${rel}, Member=${mid}`);
+  renderFamily();
+};
+function renderFamily(){
+  const sec=document.getElementById("secFamily"); sec.style.display = canAccess("familyTree") ? "" : "none";
+  if(sec.style.display==="none") return;
+  const s=getSession(); const info=document.getElementById("familyInfo"); const tbody=document.querySelector("#familyTable tbody");
+  if(!s.userId){ info.textContent="Login to manage family."; tbody.innerHTML=""; return; }
+  const users=LS.get("users",[]); const me=users.find(x=>x.userId===s.userId);
+  info.textContent=me&&me.verified?`Family admin: ${s.userId}`:"Must be verified to manage family.";
+  const fam=LS.get(`family_${s.userId}`,[]); tbody.innerHTML="";
+  fam.forEach((f,i)=>{
+    const profile=LS.get(`profile_${f.memberId}`,null);
+    const memberName=profile?profile.name:"(no name)";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${f.relation}</td><td>${f.memberId}</td><td>${memberName}</td><td>${f.verified?"Yes":"No"}</td>
+    <td><button data-i="${i}" class="btnDelFam">Delete</button></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll(".btnDelFam").forEach(b=>b.onclick=()=>{
+    const fam=LS.get(`family_${s.userId}`,[]); const idx=parseInt(b.dataset.i);
+    const removed=fam.splice(idx,1); LS.set(`family_${s.userId}`,fam);
+    logAudit(s.userId,"FAMILY_DELETE",`Member=${removed[0]?.memberId}`); renderFamily();
+  });
+}
+
+/* ===== Withdrawal (user) ===== */
+document.getElementById("btnWithdraw").onclick=()=>{
+  if(!canAccess("withdrawRequest")) return alert("Access denied.");
+  const s=getSession(); if(!s.userId) return alert("Login first.");
+  const amt=parseInt(document.getElementById("withdrawAmount").value||"0");
+  if(amt<500) return document.getElementById("withdrawMsg").textContent="Minimum withdrawal = 500 points.";
+  const w=LS.get(`wallet_${s.userId}`,null);
+  if(!w || w.points<amt) return document.getElementById("withdrawMsg").textContent="Insufficient points.";
+  const wrs=LS.get("withdrawRequests",[]);
+  wrs.push({ userId:s.userId, amount:amt, status:"Pending", ts:nowIso() }); LS.set("withdrawRequests",wrs);
+  logAudit(s.userId,"WITHDRAW_REQUEST",`Amt=${amt}`);
+  renderWithdrawAdmin();
+  document.getElementById("withdrawMsg").textContent="Withdrawal request submitted.";
+};
+function renderWithdrawAdmin(){
+  const sec=document.querySelector("#withdrawTable"); if(!sec) return;
+  sec.parentElement.style.display = canAccess("withdrawApprove") ? "" : "none";
+  const tbody=sec.querySelector("tbody"); tbody.innerHTML="";
+  const wrs=LS.get("withdrawRequests",[]); wrs.forEach((r,idx)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${r.userId}</td><td>${r.amount}</td><td>${r.status}</td>
+      <td>${canAccess("withdrawApprove")&&r.status==="Pending"?`
+        <button onclick="approveWithdraw(${idx})">Approve</button>
+        <button onclick="rejectWithdraw(${idx})">Reject</button>`:"—"}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function approveWithdraw(i){
+  if(!canAccess("withdrawApprove")) return alert("Access denied.");
+  const wrs=LS.get("withdrawRequests",[]); const r=wrs[i]; if(!r||r.status!=="Pending") return;
+  const w=LS.get(`wallet_${r.userId}`,null); if(!w || w.points<r.amount) return alert("Insufficient points.");
+  w.points-=r.amount; LS.set(`wallet_${r.userId}`,w);
+  r.status="Approved"; LS.set("withdrawRequests",wrs);
+  logAudit(r.userId,"WITHDRAW_APPROVED",`Amt=${r.amount}`); renderWithdrawAdmin(); renderWallet();
+}
+function rejectWithdraw(i){
+  if(!canAccess("withdrawApprove")) return alert("Access denied.");
+  const wrs=LS.get("withdrawRequests",[]); const r=wrs[i]; if(!r||r.status!=="Pending") return;
+  r.status="Rejected"; LS.set("withdrawRequests",wrs);
+  logAudit(r.userId,"WITHDRAW_REJECTED",`Amt=${r.amount}`); renderWithdrawAdmin();
+}
+
+/* ===== Referral overview ===== */
+function renderReferralOverview(){
+  const table=document.querySelector("#refOverviewTable"); if(!table) return;
+  table.parentElement.style.display = canAccess("voucherManage") ? "" : "none";
+  const tbody=table.querySelector("tbody"); tbody.innerHTML="";
+  const users=LS.get("users",[]);
+  const maps=[];
+  users.forEach(u=>{
+    const ref=LS.get(`ref_${u.userId}`,{ upline:"ROOT_ADMIN", list:[] });
+    maps.push({ upline:u.userId, list:ref.list });
+  });
+  const root=LS.get(`ref_ROOT_ADMIN`,{ upline:null, list:[] });
+  maps.push({ upline:"ROOT_ADMIN", list:root.list });
+  maps.forEach(m=>{
+    const total=m.list.length;
+    const verified=m.list.filter(id=>{ const u=users.find(x=>x.userId===id); return u && u.verified; }).length;
+    const ratio=total?(verified/total):1;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${m.upline}</td><td>${total}</td><td>${verified}</td><td>${(ratio*100).toFixed(0)}%</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ===== Voucher generation ===== */
+document.getElementById("btnGenerateVoucher").onclick=()=>{
+  if(!canAccess("voucherManage")) return alert("Access denied.");
+  const prefix=(document.getElementById("voucherPrefix").value||"FNF").trim();
+  const amount=parseInt(document.getElementById("voucherAmount").value||"500");
+  const code=genVoucher(prefix);
+  const list=LS.get("generatedVouchers",[]); list.push({ code, amount, status:"Unused" }); LS.set("generatedVouchers",list);
+  renderVoucherGen();
+};
+function renderVoucherGen(){
+  const table=document.querySelector("#voucherGenTable"); if(!table) return;
+  table.parentElement.style.display = canAccess("voucherManage") ? "" : "none";
+  const tbody=table.querySelector("tbody"); const list=LS.get("generatedVouchers",[]); tbody.innerHTML="";
+  list.slice().reverse().forEach(v=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${v.code}</td><td>${v.amount}</td><td>${v.status}</td>
+      <td><button class="btnCopy" data-code="${v.code}">Copy</button></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll(".btnCopy").forEach(b=>b.onclick=()=>navigator.clipboard.writeText(b.dataset.code).then(()=>alert("Copied: "+b.dataset.code)));
+}
+
+/* ===== Incentive & Promotion ===== */
+function calcScore(userId){
+  const s=LS.get("systemSettings",defaultSettings());
+  const users=LS.get("users",[]); const u=users.find(x=>x.userId===userId);
+  let score=0;
+  if(u && u.verified) score+=s.scoreMarks.userVerified;
+  const ref=LS.get(`ref_${userId}`,{ list:[] });
+  const verifiedCount=ref.list.filter(id=>{ const uu=users.find(x=>x.userId===id); return uu && uu.verified; }).length;
+  const ratio=ref.list.length?(verifiedCount/ref.list.length):0;
+  if(ratio>=0.5) score+=s.scoreMarks.teamRatio;
+  const sub=LS.get(`sub_${userId}`,null); if(sub&&sub.active&&new Date(sub.expiry)>new Date()) score+=s.scoreMarks.subscription;
+  const fam=LS.get(`family_${userId}`,[]); if(fam.some(f=>f.verified)) score+=s.scoreMarks.familyVerified;
+  const profile=LS.get(`profile_${userId}`,null); if(profile&&profile.nid) score+=s.scoreMarks.idCard;
+  const training=LS.get(`training_${userId}`,false); if(training) score+=s.scoreMarks.training;
+  return score;
+}
+function peekBonus(userId, score){
+  const s=LS.get("systemSettings",defaultSettings());
+  let bonusPct=0; s.incentiveSlabs.forEach(slab=>{ if(score>=slab.min && score<slab.max) bonusPct=slab.bonus; });
+  const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 });
+  let expected=Math.round(cw.incentive * (bonusPct/100));
+  const limits=s.incentiveLimits; if(expected>limits.perUser) expected=limits.perUser;
+  return { bonusPct, expected };
+}
+function calcIncentiveBonus(userId, score){
+  const s=LS.get("systemSettings",defaultSettings());
+  let bonusPct=0; s.incentiveSlabs.forEach(slab=>{ if(score>=slab.min && score<slab.max) bonusPct=slab.bonus; });
+  const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 });
+  let bonusAmt=Math.round(cw.incentive*(bonusPct/100));
+  const limits=s.incentiveLimits||{ perUser:1000, perPeriod:5000 };
+  if(bonusAmt>limits.perUser) bonusAmt=limits.perUser;
+  const distLog=LS.get("incentiveDistLog",[]);
+  const freq=s.incentiveDistribution.frequency||"daily";
+  const periodKey=freq==="daily"?todayKey():"W"+new Date().getFullYear()+"-"+getWeekNumber(new Date());
+  const periodTotal=distLog.filter(l=>l.period===periodKey).reduce((sum,l)=>sum+l.amount,0);
+  if(periodTotal+bonusAmt>limits.perPeriod) bonusAmt=Math.max(0, limits.perPeriod-periodTotal);
+  if(bonusAmt>0){
+    cw.incentive=Math.max(0, cw.incentive-bonusAmt); LS.set("companyWallet",cw);
+    let w=LS.get(`wallet_${userId}`,null)||{ ref:0, inc:0, ads:0, points:0 };
+    w.inc+=bonusAmt; w.points+=bonusAmt; LS.set(`wallet_${userId}`,w);
+    LS.push("incentiveDistLog",{ userId, amount:bonusAmt, period:periodKey, ts:nowIso() });
+  }
+  return { bonusPct, bonusAmt };
+}
+document.getElementById("btnCalcScore").onclick=()=>{
+  if(!canAccess("incentiveScore")) return alert("Access denied.");
+  const s=getSession(); if(!s.userId) return alert("Login first.");
+  const score=calcScore(s.userId); const { bonusPct, bonusAmt }=calcIncentiveBonus(s.userId,score);
+  LS.set(`score_${s.userId}`,{ score, ts:nowIso() });
+  document.getElementById("incentiveMsg").textContent=`Score: ${score} | Bonus: ${bonusPct}% → ${bonusAmt}৳ (credited)`;
+  logAudit(s.userId,"INCENTIVE_CALCULATED",`Score=${score}, Bonus%=${bonusPct}, BonusAmt=${bonusAmt}`);
+  renderCompanyWallet(); renderWallet();
+};
+
+/* ===== Promotion System ===== */
+function calcPromotionScore(userId){
+  const cfg=LS.get("systemSettings",defaultSettings()).promotionConfig;
+  const users=LS.get("users",[]);
+  const u=users.find(x=>x.userId===userId);
+  let score=0;
+  const myRef=LS.get(`ref_${userId}`,{ list:[] });
+  const myVerifiedDirect=myRef.list.filter(id=>{ const uu=users.find(x=>x.userId===id); return uu && uu.verified; }).length;
+  if(myVerifiedDirect>0) score+=cfg.highestReferral;
+  if(u && u.verified) score+=cfg.userVerified;
+  const ratio=myRef.list.length? (myVerifiedDirect/myRef.list.length):0;
+  if(ratio>=0.5) score+=cfg.teamRatio;
+  const sub=LS.get(`sub_${userId}`,null);
+  if(sub && sub.active && new Date(sub.expiry)>new Date()) score+=cfg.subscribedUsers;
+  const fam=LS.get(`family_${userId}`,[]);
+  if(fam.some(f=>f.verified)) score+=cfg.familyVerified;
+  if(myVerifiedDirect>=5) score+=cfg.teamTotalVerified;
+  return score;
+}
+document.getElementById("btnRequestPromotion").onclick=()=>{
+  if(!canAccess("incentiveScore")) return alert("Access denied.");
+  const s=getSession(); if(!s.userId) return alert("Login first.");
+  const score=calcPromotionScore(s.userId);
+  const status = score>=80 ? "Auto-Pending" : "Pending";
+  LS.push("promotionRequests",{ userId:s.userId, score, status, ts:nowIso() });
+  document.getElementById("promoMsg").textContent=`Promotion request submitted (${status}).`;
+  logAudit(s.userId,"PROMO_REQUEST_SUBMIT",`Score=${score}, Status=${status}`);
+  renderPromotionRequests();
+};
+
+/* ===== Promotion Requests & List ===== */
+function renderPromotionRequests(){
+  const table=document.getElementById("promotionTable"); if(!table) return;
+  table.parentElement.style.display = canAccess("promotionManage") ? "" : "none";
+  const tbody=table.querySelector("tbody"); tbody.innerHTML="";
+  const reqs=LS.get("promotionRequests",[]);
+  reqs.forEach((r,i)=>{
+    const canAct = canAccess("promotionManage") && r.status.includes("Pending");
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${r.userId}</td><td>${r.score}</td><td>${r.status}</td>
+      <td>${canAct ? `
+        <button onclick="approvePromotion(${i})">Approve</button>
+        <button onclick="rejectPromotion(${i})">Reject</button>` : "—"}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+function approvePromotion(i){
+  if(!canAccess("promotionManage")) return alert("Access denied.");
+  const reqs=LS.get("promotionRequests",[]); const r=reqs[i]; if(!r) return;
+  r.status="Approved"; LS.set("promotionRequests",reqs);
+  logAudit(r.userId,"PROMOTION_APPROVED",`Score=${r.score}`);
+  renderPromotionRequests(); renderPromotionList();
+}
+function rejectPromotion(i){
+  if(!canAccess("promotionManage")) return alert("Access denied.");
+  const reqs=LS.get("promotionRequests",[]); const r=reqs[i]; if(!r) return;
+  r.status="Rejected"; LS.set("promotionRequests",reqs);
+  logAudit(r.userId,"PROMOTION_REJECTED",`Score=${r.score}`);
+  renderPromotionRequests(); renderPromotionList();
+}
+function renderPromotionList(){
+  const table=document.getElementById("promotionList"); if(!table) return;
+  table.parentElement.style.display = canAccess("promotionManage") ? "" : "none";
+  const tbody=table.querySelector("tbody"); tbody.innerHTML="";
+  const reqs=LS.get("promotionRequests",[]).filter(r=>r.status==="Approved");
+  reqs.forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${r.userId}</td><td>${r.score}</td><td>${r.ts}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ===== Eligible list & distribution ===== */
+function listEligibleUsers(){
+  const users=LS.get("users",[]); const eligible=[];
+  users.forEach(u=>{
+    const score=calcScore(u.userId);
+    const { bonusPct, expected }=peekBonus(u.userId,score);
+    if(bonusPct>0 && expected>0) eligible.push({ userId:u.userId, score, bonusPct, expected });
+  });
+  return eligible;
+}
+function renderEligibleList(){
+  const table=document.getElementById("eligibleTable");
+  const canDist=canAccess("incentiveDistribution");
+  table.previousElementSibling.querySelectorAll("button").forEach(b=>b.disabled=!canDist);
+  const tbody=table.querySelector("tbody"); const list=listEligibleUsers(); tbody.innerHTML="";
+  list.forEach(e=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${e.userId}</td><td>${e.score}</td><td>${e.bonusPct}%</td><td>${e.expected}</td><td>Pending</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("eligibleMsg").textContent=`Eligible users: ${list.length}`;
+}
+document.getElementById("btnViewEligible").onclick=()=>renderEligibleList();
+document.getElementById("btnDistributeNow").onclick=()=>{
+  if(!canAccess("incentiveDistribution")) return alert("Access denied.");
+  const flags=LS.get("systemFlags",{ incentiveDist:true }); if(!flags.incentiveDist) return alert("Distribution engine is OFF.");
+  const s=LS.get("systemSettings",defaultSettings()); const maxAmt=s.incentiveDistribution.maxAmount||500;
+  let totalDistributed=0; const list=listEligibleUsers();
+  for(const e of list){
+    if(totalDistributed>=maxAmt) break;
+    const before=totalDistributed; const { bonusPct, bonusAmt }=calcIncentiveBonus(e.userId,e.score);
+    totalDistributed+=bonusAmt; logAudit(e.userId,"INCENTIVE_DISTRIBUTED",`Score=${e.score}, Bonus%=${bonusPct}, BonusAmt=${bonusAmt}`);
+    if(bonusAmt===0 && before===totalDistributed) break;
+  }
+  alert(`Incentives distributed (${s.incentiveDistribution.frequency}) total=${totalDistributed}৳`);
+  renderEligibleList(); renderCompanyWallet(); renderWallet();
+};
+
+/* ===== Income distribution manual (company split only) ===== */
+document.getElementById("btnDistributeIncome").onclick=()=>{
+  const amt=parseInt(document.getElementById("incomeSourceAmount").value||"0");
+  if(amt<=0) return document.getElementById("incomeMsg").textContent="Enter a valid amount.";
+  const s=LS.get("systemSettings",defaultSettings());
+  const cw=LS.get("companyWallet",{ main:0, referral:0, incentive:0, ads:0 });
+  cw.main+=Math.round(amt*(s.compMain/100));
+  cw.referral+=Math.round(amt*(s.compRef/100));
+  cw.incentive+=Math.round(amt*(s.compInc/100));
+  cw.ads+=Math.round(amt*(s.compAds/100));
+  LS.set("companyWallet",cw);
+  logAudit("COMPANY","INCOME_DISTRIBUTION_MANUAL",`Amt=${amt}, Splits=${s.compMain}/${s.compRef}/${s.compInc}/${s.compAds}`);
+  document.getElementById("incomeMsg").textContent="Distributed to company wallets per configured %.";
+  renderCompanyWallet();
+};
+
+/* ===== Orchestration ===== */
+function renderAll(){
+  applyFlagsToUI();
+  ensureCompanyWallet();
+  renderCompanyWallet();
+  renderVoucherGen();
+  renderVoucherRequestsAdmin();
+  renderVoucherRequestsAdmin2();
+  renderWithdrawAdmin();
+  renderReferralOverview();
+  renderPromotionRequests();
+  renderPromotionList();
+  renderAuditLogs();
+  renderProfileInfo();
+  renderWallet();
+  renderSubInfo();
+  renderReferral();
+  renderFamily();
+}
+
+/* ===== Boot ===== */
+(function boot(){
+  if(!LS.get("systemSettings",null)) LS.set("systemSettings",defaultSettings());
+  ensureCompanyWallet();
+  const users=LS.get("users",[]);
+  if(users.length===0){
+    LS.set("users",[
+      { userId:"FT202500000001", email:"upline@example.com", pass:"1111", verified:true },
+      { userId:"FT202500000002", email:"memberA@example.com", pass:"2222", verified:false },
+      { userId:"FT202500000003", email:"memberB@example.com", pass:"3333", verified:true }
+    ]);
+    LS.set(`ref_FT202500000001`,{ upline:"ROOT_ADMIN", list:["FT202500000002","FT202500000003"] });
+    LS.set(`profile_FT202500000003`,{ name:"Member B", nid:"ID123" });
+    LS.set(`profile_FT202500000001`,{ name:"Demo Upline", nid:"UPLINEID" });
+    LS.set("companyWallet",{ main:0, referral:0, incentive:10000, ads:0 });
+    LS.set(`wallet_FT202500000001`,{ ref:0, inc:0, ads:0, points:1000 });
+    LS.set(`wallet_FT202500000003`,{ ref:0, inc:0, ads:0, points:800 });
+  }
+  renderSession();
+  renderAll();
+  renderDashboard();
+  bindQuickActions();
+})();
+</script>
+
+</body>
+</html>
