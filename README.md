@@ -1,2 +1,2 @@
 # FNF-TREE-SAVING-SOCIAL-INITIATIVE
- Family Neueber Friends  Tree build
+ Building a Family and Friends Tree is a creative way to visualize both biological lineage and your "chosen family." This project can be executed through digital platforms
